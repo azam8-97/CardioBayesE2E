@@ -1,0 +1,17 @@
+fastapi
+uvicorn
+pydantic
+pydantic-settings
+passlib
+supabase
+python-jose
+httpx
+wfdb
+scipy
+pyedflib
+numpy
+python-multipart
+reportlab
+python-dotenv
+apscheduler
+

@@ -1,0 +1,118 @@
+# Environment Variables (SENSITIVE - NEVER COMMIT)
+.env
+.env.local
+.env.*.local
+.env.*.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Node.js
+node_modules/
+npm-debug.log
+npm-error.log
+yarn-error.log
+yarn-debug.log
+package-lock.json
+yarn.lock
+dist/
+test-results/
+
+# Frontend build
+frontend/dist/
+frontend/build/
+
+# Backend build
+backend/build/
+backend/dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+*.sublime-project
+*.sublime-workspace
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+test-results/
+coverage.xml
+
+# Local development
+.venv/
+venv/
+local_settings.py
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+.#*
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Inference service (local models - not needed for deployment)
+inference_service/models/
+inference_service/__pycache__/
+
+# Documentation and guides (optional for repo)
+COMPLETION_*.md
+EXEC_SUMMARY.md
+*_SUMMARY.md
+*_GUIDE.md
+*_PLAN.md
+MIGRATION_GUIDE.md
+
+# Docker
+.dockerignore
+
+# Misc
+.env.prod
+.env.staging
