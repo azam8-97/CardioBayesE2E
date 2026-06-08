@@ -349,9 +349,9 @@ export default function Landing() {
                   Free to use. No credit card. Academic tool built for clinicians and researchers.
                 </p>
               </div>
-              <a className="btn btn-primary" href="/inference">
+              <Link className="btn btn-primary" to="/inference">
                 Start Your First Inference <ArrowRight size={16} />
-              </a>
+              </Link>
             </div>
           </div>
         </section>

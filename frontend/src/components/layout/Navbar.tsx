@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import clsx from "clsx";
 
@@ -31,9 +32,9 @@ export default function Navbar() {
         </nav>
 
         <div className="nav-actions">
-          <a className="btn btn-ghost" href="/auth?mode=login">
+          <Link className="btn btn-ghost" to="/auth?mode=login">
             Sign In
-          </a>
+          </Link>
           <a className="btn btn-primary" href="#cta">
             Get Started
           </a>
@@ -74,9 +75,9 @@ export default function Navbar() {
           ))}
         </div>
         <div className="mobile-menu-actions">
-          <a className="btn btn-ghost" href="/auth?mode=login">
+          <Link className="btn btn-ghost" to="/auth?mode=login" onClick={() => setIsOpen(false)}>
             Sign In
-          </a>
+          </Link>
           <a className="btn btn-primary" href="#cta" onClick={() => setIsOpen(false)}>
             Get Started
           </a>
