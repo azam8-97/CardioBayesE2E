@@ -202,7 +202,7 @@ export default function Landing() {
           </div>
         </section>
 
-        <section className="section" id="demo">
+        <section className="section section-light" id="demo">
           <div className="container">
             <div className="section-heading">
               <p className="text-label text-accent">How It Works</p>
@@ -319,7 +319,7 @@ export default function Landing() {
           </div>
         </section>
 
-        <section className="section" id="docs">
+        <section className="section section-light" id="docs">
           <div className="container doc-section">
             <div>
               <p className="text-label text-accent">Documentation</p>
