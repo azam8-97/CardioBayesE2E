@@ -106,34 +106,46 @@ export default function Results() {
   const [ecgOpen, setEcgOpen] = useState(true);
 
   useEffect(() => {
-    const fetchResults = async () => {
+    if (!jobId) return;
+
+    let cancelled = false;
+    let pollTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const fetchResults = async (isInitialLoad: boolean) => {
+      if (cancelled) return;
+      if (isInitialLoad) setLoading(true);
+
       try {
-        setLoading(true);
         const response = await api.get(`/api/v1/inference/result/${jobId}`);
-        setResults(response.data);
+        if (!cancelled) {
+          setResults(response.data);
+          setError(null);
+          setLoading(false);
+          // Results received — stop polling
+        }
       } catch (err: any) {
+        if (cancelled) return;
         if (err.response?.status === 202) {
-          setError('Inference still processing. Please wait and refresh.');
+          // Still processing — schedule one more check, no loading flash
+          if (isInitialLoad) setLoading(false);
+          pollTimer = setTimeout(() => fetchResults(false), 3000);
         } else {
           setError(
-            err?.response?.data?.detail || 
+            err?.response?.data?.detail ||
             (err instanceof Error ? err.message : 'Failed to load results')
           );
+          setLoading(false);
         }
-      } finally {
-        setLoading(false);
       }
     };
 
-    if (jobId) {
-      fetchResults();
-      // Only poll while results not yet loaded
-      const interval = setInterval(() => {
-        if (!results) fetchResults();
-      }, 3000);
-      return () => clearInterval(interval);
-    }
-  }, [jobId]); // eslint-disable-line react-hooks/exhaustive-deps
+    fetchResults(true);
+
+    return () => {
+      cancelled = true;
+      if (pollTimer) clearTimeout(pollTimer);
+    };
+  }, [jobId]);
 
   const handleExport = async (format: 'pdf' | 'csv') => {
     setExportLoading((prev) => ({ ...prev, [format]: true }));
@@ -251,8 +263,8 @@ export default function Results() {
           />
           <MetricCard
             label="Processing Time"
-            value={(results.processing_time_ms / 1000).toFixed(2)}
-            unit="s"
+            value={results.processing_time_ms != null ? (results.processing_time_ms / 1000).toFixed(2) : '—'}
+            unit={results.processing_time_ms != null ? 's' : undefined}
           />
           <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
             <p className="text-slate-400 text-sm mb-2">Overall Confidence</p>
@@ -308,44 +320,62 @@ export default function Results() {
         {/* Waveform Viewer for each channel */}
         <div className="mb-8">
           <h2 className="text-h3 text-white mb-4">Waveform Reconstruction</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {channels.map((channel) => (
-              <div
-                key={channel.name}
-                className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-6"
-              >
-                <h3 className="text-h5 text-white mb-1">
-                  {channel.name}
-                </h3>
-                <p className="text-caption text-slate-500 mb-3">
-                  Solid: smoothed reference trace. Dashed: predicted mean. Shaded: ±2σ when available.
-                </p>
-                <div className="overflow-auto">
-                  <WaveformViewer
-                    mean={channel.mean}
-                    sigma={channel.sigma}
-                    referenceLine={channel.mean.map((v, i, arr) => {
-                      const a = arr[Math.max(0, i - 1)] ?? v;
-                      const b = arr[Math.min(arr.length - 1, i + 1)] ?? v;
-                      return 0.5 * v + 0.25 * a + 0.25 * b;
-                    })}
-                    width={450}
-                    height={200}
-                  />
-                </div>
-                <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
-                  <div>
-                    <p className="text-slate-400">PCC</p>
-                    <p className="text-white font-mono">{channel.metrics.pcc.toFixed(4)}</p>
+          {channels.length === 0 ? (
+            <div className="bg-slate-800/30 border border-slate-700/50 rounded-lg p-6 text-center text-slate-400">
+              No waveform data available for this job.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {channels.map((channel) => {
+                const hasMean = Array.isArray(channel.mean) && channel.mean.length > 0;
+                const pcc = channel.metrics?.pcc;
+                const rmse = channel.metrics?.rmse;
+                return (
+                  <div
+                    key={channel.name}
+                    className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-6"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <h3 className="text-h5 text-white">{channel.name}</h3>
+                      <ConfidenceBadge level={channel.uncertainty?.confidence_level ?? 'Medium'} />
+                    </div>
+                    <p className="text-caption text-slate-500 mb-3">
+                      Solid: smoothed reference trace. Dashed: predicted mean. Shaded: ±2σ when available.
+                    </p>
+                    <div className="overflow-auto">
+                      {hasMean ? (
+                        <WaveformViewer
+                          mean={channel.mean}
+                          sigma={channel.sigma}
+                          referenceLine={channel.mean.map((v, i, arr) => {
+                            const a = arr[Math.max(0, i - 1)] ?? v;
+                            const b = arr[Math.min(arr.length - 1, i + 1)] ?? v;
+                            return 0.5 * v + 0.25 * a + 0.25 * b;
+                          })}
+                          width={450}
+                          height={200}
+                        />
+                      ) : (
+                        <div className="h-[200px] flex items-center justify-center text-slate-500 text-sm">
+                          Waveform data not available
+                        </div>
+                      )}
+                    </div>
+                    <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <p className="text-slate-400">PCC</p>
+                        <p className="text-white font-mono">{pcc != null ? pcc.toFixed(4) : '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-slate-400">RMSE</p>
+                        <p className="text-white font-mono">{rmse != null ? rmse.toFixed(4) : '—'}</p>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-slate-400">RMSE</p>
-                    <p className="text-white font-mono">{channel.metrics.rmse.toFixed(4)}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Detailed Metrics Table */}
@@ -386,25 +416,25 @@ export default function Results() {
                   <tr key={channel.name} className="hover:bg-slate-700/20">
                     <td className="px-6 py-3 text-white font-medium">{channel.name}</td>
                     <td className="px-6 py-3 text-slate-300">
-                      {channel.metrics.pcc.toFixed(4)}
+                      {channel.metrics?.pcc != null ? channel.metrics.pcc.toFixed(4) : '—'}
                     </td>
                     <td className="px-6 py-3 text-slate-300">
-                      {channel.metrics.rmse.toFixed(4)}
+                      {channel.metrics?.rmse != null ? channel.metrics.rmse.toFixed(4) : '—'}
                     </td>
                     <td className="px-6 py-3 text-slate-300">
-                      {channel.metrics.mae.toFixed(4)}
+                      {channel.metrics?.mae != null ? channel.metrics.mae.toFixed(4) : '—'}
                     </td>
                     <td className="px-6 py-3 text-slate-300">
-                      {channel.metrics.r_squared.toFixed(4)}
+                      {channel.metrics?.r_squared != null ? channel.metrics.r_squared.toFixed(4) : '—'}
                     </td>
                     <td className="px-6 py-3 text-slate-300">
-                      {channel.metrics.snr_db.toFixed(2)}
+                      {channel.metrics?.snr_db != null ? channel.metrics.snr_db.toFixed(2) : '—'}
                     </td>
                     <td className="px-6 py-3 text-slate-300">
-                      {channel.uncertainty.mean_uncertainty.toFixed(4)}
+                      {channel.uncertainty?.mean_uncertainty != null ? channel.uncertainty.mean_uncertainty.toFixed(4) : '—'}
                     </td>
                     <td className="px-6 py-3">
-                      <ConfidenceBadge level={channel.uncertainty.confidence_level} />
+                      <ConfidenceBadge level={channel.uncertainty?.confidence_level ?? 'Medium'} />
                     </td>
                   </tr>
                 ))}
