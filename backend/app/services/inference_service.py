@@ -91,7 +91,8 @@ def run_hf_inference(ecg_tensor: list[list[float]], architecture: str) -> dict[s
 		raise RuntimeError("CIRCUIT_BREAKER_OPEN: Inference service unavailable (too many failures)")
 
 	url = f"{base}/infer"
-	payload = {"ecg_tensor": ecg_tensor, "architecture": architecture}
+	# HF Space expects shape [1, 3, N] — wrap the [3, N] tensor in a batch dimension
+	payload = {"ecg_tensor": [ecg_tensor], "architecture": architecture}
 	timeout = float(os.environ.get("HUGGINGFACE_INFERENCE_TIMEOUT_S", str(DEFAULT_TIMEOUT_S)))
 	
 	# Retry loop with exponential backoff
