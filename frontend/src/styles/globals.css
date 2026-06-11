@@ -503,9 +503,14 @@ button {
     background var(--duration-fast) var(--ease-standard);
 }
 
-.nav-link:hover {
+.nav-link:hover,
+.nav-link--active {
   color: var(--blue-300);
   background: rgba(59, 130, 246, 0.1);
+}
+
+.nav-link--active {
+  font-weight: 600;
 }
 
 .nav-actions {

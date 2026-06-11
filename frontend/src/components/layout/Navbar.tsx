@@ -1,33 +1,43 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import clsx from "clsx";
 
 const navLinks = [
-  { label: "Home", href: "#home" },
-  { label: "Demo", href: "#demo" },
-  { label: "Models", href: "#models" },
-  { label: "Research", href: "#research" },
-  { label: "Docs", href: "#docs" },
+  { label: "Home",     to: "/" },
+  { label: "Demo",     to: "/#demo" },
+  { label: "Models",   to: "/models" },
+  { label: "Research", to: "/research" },
+  { label: "Docs",     to: "/docs" },
 ];
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
+  const { pathname } = useLocation();
+
+  const isActive = (to: string) => {
+    if (to === "/") return pathname === "/";
+    return pathname.startsWith(to.split("#")[0]) && to.split("#")[0] !== "/";
+  };
 
   return (
     <header className="navbar">
       <div className="container nav-content">
-        <a className="brand" href="#home">
+        <Link className="brand" to="/">
           <img src="/logo.svg" alt="CardioBayes" className="brand-logo" />
           <span className="brand-text">CardioBayes</span>
           <sup className="brand-sup">E2E</sup>
-        </a>
+        </Link>
 
         <nav className="nav-links">
           {navLinks.map((link) => (
-            <a key={link.label} href={link.href} className="nav-link">
+            <Link
+              key={link.label}
+              to={link.to}
+              className={clsx("nav-link", isActive(link.to) && "nav-link--active")}
+            >
               {link.label}
-            </a>
+            </Link>
           ))}
         </nav>
 
@@ -35,9 +45,9 @@ export default function Navbar() {
           <Link className="btn btn-ghost" to="/auth?mode=login">
             Sign In
           </Link>
-          <a className="btn btn-primary" href="#cta">
+          <Link className="btn btn-primary" to="/inference">
             Get Started
-          </a>
+          </Link>
         </div>
 
         <button
@@ -64,23 +74,23 @@ export default function Navbar() {
         </div>
         <div className="mobile-menu-links">
           {navLinks.map((link) => (
-            <a
+            <Link
               key={link.label}
-              href={link.href}
-              className="mobile-link"
+              to={link.to}
+              className={clsx("mobile-link", isActive(link.to) && "nav-link--active")}
               onClick={() => setIsOpen(false)}
             >
               {link.label}
-            </a>
+            </Link>
           ))}
         </div>
         <div className="mobile-menu-actions">
           <Link className="btn btn-ghost" to="/auth?mode=login" onClick={() => setIsOpen(false)}>
             Sign In
           </Link>
-          <a className="btn btn-primary" href="#cta" onClick={() => setIsOpen(false)}>
+          <Link className="btn btn-primary" to="/inference" onClick={() => setIsOpen(false)}>
             Get Started
-          </a>
+          </Link>
         </div>
       </div>
     </header>
