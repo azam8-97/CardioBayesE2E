@@ -42,7 +42,7 @@ async def submit_feedback(job_id: str, body: dict):
 
 
 @router.get("/export/{job_id}")
-async def export_results(job_id: str, format: str = Query("csv", regex="^(csv|pdf)$")):
+async def export_results(job_id: str, format: str = Query("csv", pattern="^(csv|pdf)$")):
 	try:
 		job = supabase_service.get_job(job_id)
 		if not job:
