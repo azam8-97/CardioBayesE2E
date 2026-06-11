@@ -1,7 +1,5 @@
 import os
 import json
-import gzip
-import io
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 from uuid import UUID
@@ -254,56 +252,44 @@ class SupabaseService:
             return None
 
     # ==================== Waveform Storage Methods ====================
-    def store_waveform(self, job_id: str, channel: str, waveform_data: Dict[str, Any]) -> Optional[str]:
-        """
-        Store waveform (mean and sigma) as JSON in Supabase Storage.
-        Returns storage path if successful.
-        """
+    def store_waveform(self, job_id: str, channel: str, waveform_data: Dict[str, Any]) -> bool:
+        """Store waveform mean/sigma arrays in the waveforms table."""
         if not self.client:
-            return None
+            return False
         try:
-            # Convert numpy arrays to lists for JSON serialization
-            storage_data = {
-                "mean": waveform_data.get("mean", []),
-                "sigma": waveform_data.get("sigma", [])
-            }
-            
-            # Compress and upload
-            json_str = json.dumps(storage_data)
-            compressed = gzip.compress(json_str.encode('utf-8'))
-            
-            path = f"{job_id}/{channel}.json.gz"
-            try:
-                self.client.storage.from_("waveforms").remove([path])
-            except Exception:
-                pass
-
-            self.client.storage.from_("waveforms").upload(
-                path=path,
-                file=compressed,
-                file_options={"content-type": "application/gzip"}
-            )
-            
-            return f"waveforms/{path}"
+            self.client.table("waveforms").upsert(
+                {
+                    "job_id": job_id,
+                    "channel": channel,
+                    "mean_data": waveform_data.get("mean", []),
+                    "sigma_data": waveform_data.get("sigma", []),
+                },
+                on_conflict="job_id,channel",
+            ).execute()
+            return True
         except Exception as e:
-            print(f"Error storing waveform: {e}")
-            return None
+            print(f"Error storing waveform for {channel}: {e}")
+            return False
 
     def retrieve_waveform(self, job_id: str, channel: str) -> Optional[Dict]:
-        """Retrieve waveform data from storage"""
+        """Retrieve waveform mean/sigma arrays from the waveforms table."""
         if not self.client:
             return None
         try:
-            path = f"{job_id}/{channel}.json.gz"
-            data = self.client.storage.from_("waveforms").download(path)
-            
-            # Decompress
-            decompressed = gzip.decompress(data)
-            waveform_data = json.loads(decompressed.decode('utf-8'))
-            
-            return waveform_data
+            result = (
+                self.client.table("waveforms")
+                .select("mean_data, sigma_data")
+                .eq("job_id", job_id)
+                .eq("channel", channel)
+                .limit(1)
+                .execute()
+            )
+            if not result.data:
+                return None
+            row = result.data[0]
+            return {"mean": row.get("mean_data", []), "sigma": row.get("sigma_data", [])}
         except Exception as e:
-            print(f"Error retrieving waveform: {e}")
+            print(f"Error retrieving waveform for {channel}: {e}")
             return None
 
     # ==================== System Events Methods ====================
