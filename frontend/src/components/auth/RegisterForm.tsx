@@ -50,7 +50,10 @@ export default function RegisterForm() {
 
       <div>
         <label className="block text-sm mb-1">Password</label>
-        <input {...register("password", { required: true, minLength: 8 })} type="password" className="input" />
+        <input {...register("password", { required: true, minLength: 8 })} type="password" className="input" placeholder="Min. 8 characters" />
+        {formState.errors.password && (
+          <p className="text-xs mt-1" style={{ color: "#ef4444" }}>Password must be at least 8 characters</p>
+        )}
       </div>
 
       <div>
@@ -59,7 +62,11 @@ export default function RegisterForm() {
           {...register("confirm", { required: true, validate: (v) => v === pwd || "Passwords must match" })}
           type="password"
           className="input"
+          placeholder="Repeat password"
         />
+        {formState.errors.confirm && (
+          <p className="text-xs mt-1" style={{ color: "#ef4444" }}>{formState.errors.confirm.message as string || "Passwords must match"}</p>
+        )}
       </div>
 
       <div className="flex items-center gap-2">

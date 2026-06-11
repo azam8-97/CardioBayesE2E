@@ -351,8 +351,14 @@ button {
     box-shadow var(--duration-fast) var(--ease-standard);
 }
 
-.btn:hover  { transform: scale(1.02); filter: brightness(1.08); }
-.btn:active { transform: scale(0.98); filter: brightness(0.96); }
+.btn:hover:not(:disabled)  { transform: scale(1.02); filter: brightness(1.08); }
+.btn:active:not(:disabled) { transform: scale(0.98); filter: brightness(0.96); }
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: grayscale(0.3);
+  transform: none;
+}
 
 .btn-primary {
   background: var(--gradient-blue);
