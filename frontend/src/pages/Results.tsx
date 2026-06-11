@@ -13,6 +13,7 @@ import api from '../services/api';
 import WaveformViewer from '../components/charts/WaveformViewer';
 import Navbar from '../components/layout/Navbar';
 import { Loader, Download, AlertCircle, CheckCircle } from 'lucide-react';
+import { useToast } from '../components/ui/ToastProvider';
 
 interface ChannelData {
   channel?: string;
@@ -95,10 +96,13 @@ const MetricCard: React.FC<{ label: string; value: string; unit?: string }> = ({
 export default function Results() {
   const { jobId } = useParams<{ jobId: string }>();
   const navigate = useNavigate();
+  const toast = useToast();
   const [results, setResults] = useState<ResultsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<number | null>(null);
+  const [feedbackSaved, setFeedbackSaved] = useState(false);
+  const [exportLoading, setExportLoading] = useState<{ pdf: boolean; csv: boolean }>({ pdf: false, csv: false });
   const [ecgOpen, setEcgOpen] = useState(true);
 
   useEffect(() => {
@@ -123,19 +127,21 @@ export default function Results() {
 
     if (jobId) {
       fetchResults();
-      // Poll for updates every 2 seconds while job is not complete
-      const interval = setInterval(fetchResults, 2000);
+      // Only poll while results not yet loaded
+      const interval = setInterval(() => {
+        if (!results) fetchResults();
+      }, 3000);
       return () => clearInterval(interval);
     }
-  }, [jobId]);
+  }, [jobId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleExport = async (format: 'pdf' | 'csv') => {
+    setExportLoading((prev) => ({ ...prev, [format]: true }));
+    const loadId = toast.loading(`Preparing ${format.toUpperCase()} export…`);
     try {
       const response = await api.get(
         `/api/v1/inference/export/${jobId}?format=${format}`,
-        {
-          responseType: 'blob',
-        }
+        { responseType: 'blob' }
       );
       const url = window.URL.createObjectURL(response.data);
       const link = document.createElement('a');
@@ -143,21 +149,26 @@ export default function Results() {
       link.download = `results-${jobId}.${format}`;
       link.click();
       window.URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error(`Failed to export as ${format}:`, err);
+      toast.update(loadId, `${format.toUpperCase()} downloaded successfully!`, 'success');
+    } catch (err: any) {
+      toast.update(loadId, `Export failed: ${err?.response?.data?.detail || 'Please try again'}`, 'error');
+    } finally {
+      setExportLoading((prev) => ({ ...prev, [format]: false }));
     }
   };
 
   const handleFeedback = async (rating: number) => {
+    if (feedbackSaved) return;
     setFeedback(rating);
     if (!jobId) return;
+    const loadId = toast.loading('Saving your rating…');
     try {
-      await api.post(`/api/v1/inference/feedback/${jobId}`, {
-        rating,
-        comment: '',
-      });
-    } catch (err) {
-      console.error('Failed to submit feedback:', err);
+      await api.post(`/api/v1/inference/feedback/${jobId}`, { rating, comment: '' });
+      setFeedbackSaved(true);
+      toast.update(loadId, 'Thank you for your feedback!', 'success');
+    } catch {
+      toast.update(loadId, 'Could not save rating. Please try again.', 'error');
+      setFeedback(null);
     }
   };
 
@@ -404,43 +415,55 @@ export default function Results() {
 
         {/* Feedback Section */}
         <div className="mb-8 bg-slate-800/50 border border-slate-700/50 rounded-lg p-6">
-          <h2 className="text-h4 text-white mb-4">Rate These Results</h2>
-          <div className="flex gap-2">
-            {[1, 2, 3, 4, 5].map((rating) => (
-              <button
-                key={rating}
-                onClick={() => handleFeedback(rating)}
-                className={`px-4 py-2 rounded-lg transition ${
-                  feedback === rating
-                    ? 'bg-yellow-500 text-slate-900 font-bold'
-                    : 'bg-slate-700 hover:bg-slate-600 text-white'
-                }`}
-              >
-                {'⭐'.repeat(rating)}
-              </button>
-            ))}
-          </div>
+          <h2 className="text-h4 text-white mb-1">Rate These Results</h2>
+          {feedbackSaved ? (
+            <div className="flex items-center gap-2 text-green-400 text-sm mt-3">
+              <CheckCircle className="w-4 h-4" />
+              Thank you! Your rating has been saved.
+            </div>
+          ) : (
+            <>
+              <p className="text-slate-400 text-sm mb-3">How useful were these reconstruction results?</p>
+              <div className="flex gap-2 flex-wrap">
+                {[1, 2, 3, 4, 5].map((rating) => (
+                  <button
+                    key={rating}
+                    onClick={() => handleFeedback(rating)}
+                    className={`px-4 py-2 rounded-lg transition-all active:scale-95 ${
+                      feedback === rating
+                        ? 'bg-yellow-500 text-slate-900 font-bold scale-105'
+                        : 'bg-slate-700 hover:bg-slate-600 text-white'
+                    }`}
+                  >
+                    {'⭐'.repeat(rating)}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Export Section */}
         <div className="flex gap-4 flex-wrap">
           <button
             onClick={() => handleExport('pdf')}
-            className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-medium transition"
+            disabled={exportLoading.pdf}
+            className="btn flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Download className="w-5 h-5" />
-            Export as PDF
+            {exportLoading.pdf ? <Loader className="w-4 h-4 animate-spin" /> : <Download className="w-5 h-5" />}
+            {exportLoading.pdf ? 'Exporting…' : 'Export as PDF'}
           </button>
           <button
             onClick={() => handleExport('csv')}
-            className="flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg text-white font-medium transition"
+            disabled={exportLoading.csv}
+            className="btn flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg text-white font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Download className="w-5 h-5" />
-            Export as CSV
+            {exportLoading.csv ? <Loader className="w-4 h-4 animate-spin" /> : <Download className="w-5 h-5" />}
+            {exportLoading.csv ? 'Exporting…' : 'Export as CSV'}
           </button>
           <button
             onClick={() => navigate('/dashboard')}
-            className="ml-auto px-6 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg text-white font-medium transition"
+            className="btn ml-auto px-6 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg text-white font-medium transition"
           >
             Back to Dashboard
           </button>

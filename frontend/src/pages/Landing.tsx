@@ -9,6 +9,7 @@ import {
 import { Link } from "react-router-dom";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
+import { useToast } from "../components/ui/ToastProvider";
 
 const DISCLAIMER_TEXT =
   "CardioBayes-E2E is an academic research tool. Outputs are probabilistic predictions and must not be used as the sole basis for clinical decisions. Always consult a qualified cardiologist or electrophysiologist for medical diagnosis and treatment. Do not upload identifiable patient data.";
@@ -103,6 +104,7 @@ const floatingMetrics = [
 ];
 
 export default function Landing() {
+  const toast = useToast();
   return (
     <div className="page-shell">
       <Navbar />
@@ -333,9 +335,9 @@ export default function Landing() {
               <a className="btn btn-secondary" href="/ecg-template.csv">
                 Download CSV Template
               </a>
-              <a className="btn btn-ghost" href="#">
-                API Reference (mock)
-              </a>
+              <button className="btn btn-ghost" onClick={() => toast.info("Full API documentation is coming soon.")}>
+                API Reference
+              </button>
             </div>
           </div>
         </section>
