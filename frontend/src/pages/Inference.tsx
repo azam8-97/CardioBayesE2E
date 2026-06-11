@@ -58,6 +58,7 @@ export default function Inference() {
       "text/csv": [".csv"],
       "application/x-matlab": [".mat"],
       "application/octet-stream": [".edf"],
+      "application/zip": [".zip"],
     },
   });
 
@@ -202,7 +203,7 @@ export default function Inference() {
 
         <h1 className="text-h2 text-white mb-2">New inference</h1>
         <p className="text-body-sm text-slate-400 mb-6">
-          Upload a 3-lead ECG (.csv, .mat, .edf), choose an architecture, and run the Bayesian pipeline.
+          Upload a 3-lead ECG (.csv, .mat, .edf, or a .zip containing a WFDB .hea + .dat pair), choose an architecture, and run the Bayesian pipeline.
         </p>
 
         <Toast variant="warning" className="mb-6 text-left">
@@ -229,12 +230,12 @@ export default function Inference() {
                 ) : (
                   <div className="text-center text-slate-400 px-4">
                     Drag and drop <span className="text-blue-300">.csv</span>, <span className="text-blue-300">.mat</span>
-                    , or <span className="text-blue-300">.edf</span> here, or click to browse.
+                    , <span className="text-blue-300">.edf</span>, or <span className="text-blue-300">.zip</span> here, or click to browse.
                   </div>
                 )}
               </div>
               <p className="text-caption text-slate-500 mt-3">
-                CSV columns should include leads I, II, and V1 (e.g. lead_I, lead_II, lead_V1). Minimum 1000 samples.
+                CSV: include columns lead_I, lead_II, lead_V1. WFDB: ZIP a single .hea + .dat pair together. Minimum 1000 samples across all formats.
               </p>
             </Card>
 

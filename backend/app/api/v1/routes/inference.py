@@ -49,8 +49,8 @@ async def upload(
 ):
 	"""Upload ECG file, validate & preprocess, queue inference job."""
 	filename = file.filename or "upload"
-	if not any(filename.lower().endswith(ext) for ext in [".csv", ".mat", ".edf"]):
-		raise HTTPException(status_code=400, detail="INVALID_FORMAT")
+	if not any(filename.lower().endswith(ext) for ext in [".csv", ".mat", ".edf", ".zip"]):
+		raise HTTPException(status_code=400, detail="INVALID_FORMAT: accepted formats are .csv, .mat, .edf, .zip (WFDB)")
 
 	job_id = str(uuid.uuid4())
 	file_ext = filename.split(".")[-1].lower()

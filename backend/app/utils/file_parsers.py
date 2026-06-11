@@ -1,11 +1,14 @@
-"""Parse .csv / .mat / .edf into synchronized I, II, V1 arrays."""
+"""Parse .csv / .mat / .edf / .zip(wfdb) into synchronized I, II, V1 arrays."""
 
 from __future__ import annotations
 
 import csv
 import io
 import re
+import tempfile
+import zipfile
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 import pyedflib
@@ -161,6 +164,81 @@ def parse_edf_bytes(raw: bytes) -> ParsedECG:
 			f.close()
 
 
+def parse_wfdb_zip_bytes(raw: bytes) -> ParsedECG:
+	"""Parse a ZIP containing a WFDB record (.hea + .dat pair)."""
+	if not zipfile.is_zipfile(io.BytesIO(raw)):
+		raise ParseError("File is not a valid ZIP archive")
+
+	with tempfile.TemporaryDirectory() as tmpdir:
+		with zipfile.ZipFile(io.BytesIO(raw)) as zf:
+			# Security: reject paths that escape the temp dir
+			for member in zf.namelist():
+				dest = Path(tmpdir) / Path(member).name
+				if not str(dest.resolve()).startswith(str(Path(tmpdir).resolve())):
+					raise ParseError("ZIP contains unsafe paths")
+			# Extract all files flat (strip any subdirectory structure)
+			for member in zf.namelist():
+				data = zf.read(member)
+				dest = Path(tmpdir) / Path(member).name
+				dest.write_bytes(data)
+
+		# Find the .hea file to get the record name
+		hea_files = list(Path(tmpdir).glob("*.hea"))
+		if not hea_files:
+			raise ParseError("ZIP must contain a WFDB .hea header file alongside the .dat file")
+		if len(hea_files) > 1:
+			raise ParseError("ZIP contains multiple .hea files — include only one WFDB record per ZIP")
+
+		# Check .dat file exists
+		record_stem = hea_files[0].stem
+		dat_file = Path(tmpdir) / f"{record_stem}.dat"
+		if not dat_file.exists():
+			raise ParseError(f"ZIP is missing the .dat data file for record '{record_stem}'")
+
+		try:
+			import wfdb
+			record = wfdb.rdrecord(str(Path(tmpdir) / record_stem))
+		except Exception as e:
+			raise ParseError(f"Failed to read WFDB record: {e}") from e
+
+		sig_names = [s.upper().replace(" ", "").replace("-", "") for s in (record.sig_name or [])]
+		p_signal = record.p_signal  # shape: (samples, channels)
+		if p_signal is None or p_signal.ndim != 2:
+			raise ParseError("WFDB record has no readable signal data")
+
+		def find_lead(candidates: tuple[str, ...]) -> np.ndarray | None:
+			for c in candidates:
+				for i, name in enumerate(sig_names):
+					if c in name or name == c:
+						col = p_signal[:, i].astype(np.float64)
+						col = np.nan_to_num(col, nan=0.0)
+						return col
+			return None
+
+		lead_i  = find_lead(("I", "ECGI",  "LEADI",  "LEAD1", "CH1"))
+		lead_ii = find_lead(("II", "ECGII", "LEADII", "LEAD2", "CH2"))
+		lead_v1 = find_lead(("V1", "ECGV1", "LEADV1"))
+
+		if lead_i is None or lead_ii is None or lead_v1 is None:
+			available = ", ".join(record.sig_name or [])
+			raise ParseError(
+				f"WFDB record must contain leads I, II, and V1. "
+				f"Found channels: {available or 'none'}"
+			)
+
+		n = min(lead_i.size, lead_ii.size, lead_v1.size)
+		if n < 1000:
+			raise ParseError(f"WFDB signals must have at least 1000 samples, got {n}")
+
+		fs = float(record.fs) if record.fs else 1000.0
+		return ParsedECG(
+			lead_i=lead_i[:n].copy(),
+			lead_ii=lead_ii[:n].copy(),
+			lead_v1=lead_v1[:n].copy(),
+			sampling_hz=fs,
+		)
+
+
 def parse_ecg_bytes(raw: bytes, ext: str) -> ParsedECG:
 	ext = ext.lower().lstrip(".")
 	if ext == "csv":
@@ -169,4 +247,6 @@ def parse_ecg_bytes(raw: bytes, ext: str) -> ParsedECG:
 		return parse_mat_bytes(raw)
 	if ext == "edf":
 		return parse_edf_bytes(raw)
-	raise ParseError(f"Unsupported format: {ext}")
+	if ext == "zip":
+		return parse_wfdb_zip_bytes(raw)
+	raise ParseError(f"Unsupported format: .{ext}. Accepted: .csv, .mat, .edf, .zip (WFDB .hea+.dat pair)")
