@@ -43,6 +43,7 @@ def register(req: RegisterRequest):
 	# Check if user already exists in users table
 	existing_user = supabase_service.get_user_by_email(email)
 	if existing_user:
+		print(f"User already exists: {email}")
 		raise HTTPException(status_code=400, detail="User already exists")
 
 	# Hash password
@@ -50,12 +51,14 @@ def register(req: RegisterRequest):
 	user_id = str(uuid.uuid4())
 
 	# Create user in Supabase (both users and user_profiles tables)
+	print(f"Creating user: {email} with id: {user_id}")
 	if not supabase_service.create_user(
 		user_id=user_id,
 		email=email,
 		password_hash=hashed,
 		full_name=req.full_name,
 	):
+		print(f"Failed to create user: {email}")
 		raise HTTPException(status_code=500, detail="Failed to create user")
 
 	# Log event

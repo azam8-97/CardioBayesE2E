@@ -1,5 +1,6 @@
 import { createBrowserRouter } from "react-router-dom";
 import Landing from "./pages/Landing";
+import Demo from "./pages/Demo";
 import Auth from "./pages/Auth";
 import Inference from "./pages/Inference";
 import Results from "./pages/Results";
@@ -20,6 +21,10 @@ export const router = createBrowserRouter([
   {
     path: "/",
     element: <Landing />,
+  },
+  {
+    path: "/demo",
+    element: <Demo />,
   },
   {
     path: "/auth",
